@@ -17,30 +17,34 @@ Export these before running:
 
 ```sh
 export OMLX_API_KEY=<your-omlx-api-key>
-export GITHUB_TOKEN=<your-github-personal-access-token>
+export GITHUB_PERSONAL_ACCESS_TOKEN=<your-github-personal-access-token>
 export NPM_TOKEN=<your-npm-token>          # optional, only needed for private npm packages
 ```
 
-## Build the image
+## Build and load the image
+
+`sbx` uses its own container runtime and cannot access images built with the host `docker` CLI directly. Build the image and load it into sbx:
 
 ```sh
 docker build -t pi-sandbox:latest .
+docker image save pi-sandbox:latest -o pi-sandbox.tar
+sbx template load pi-sandbox.tar
 ```
 
 ## Run
 
 ```sh
-sbx run spec.yaml
+sbx run --kit . pi
 ```
 
 This starts a Pi session inside the sandbox. Pi connects to oMLX on the host at `host.docker.internal:8000`.
 
 ### Linux hosts
 
-`host.docker.internal` is a macOS/Windows Docker Desktop convention. On Linux, pass the extra flag:
+`host.docker.internal` is a macOS/Windows Docker Desktop convention. On Linux the name doesn't resolve inside the container. Pass the host gateway mapping when creating the sandbox:
 
 ```sh
-sbx run --add-host=host.docker.internal:host-gateway spec.yaml
+sbx run --kit . --add-host=host.docker.internal:host-gateway pi
 ```
 
 ## Changing the model
@@ -65,6 +69,6 @@ The sandbox allows outbound connections only to:
 | Destination | Purpose |
 |---|---|
 | `host.docker.internal:8000` | oMLX model server |
-| `*.github.com`, `*.githubusercontent.com` | GitHub API and raw content |
+| `github.com`, `*.github.com`, `*.githubusercontent.com` | GitHub API, releases, and raw content |
 | `registry.npmjs.org`, `*.npmjs.com` | npm registry |
 | `pypi.org`, `files.pythonhosted.org` | PyPI |
