@@ -54,7 +54,7 @@ sbx run --add-host=host.docker.internal:host-gateway spec.yaml
 ## What's in the image
 
 - Base: `docker/sandbox-templates:shell`
-- Node.js 22
+- Node.js 26
 - `@mariozechner/pi-coding-agent` (global npm install)
 - `uv` + `ruff` (Python toolchain)
 
