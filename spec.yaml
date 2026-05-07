@@ -11,8 +11,6 @@ agent:
 
 # oMLX serves its OpenAI-compatible API on the host at port 8000 (default).
 # Inside the sandbox, the host is reachable via host.docker.internal.
-# Note: host.docker.internal is a macOS/Windows Docker Desktop convention.
-# On Linux hosts, pass --add-host=host.docker.internal:host-gateway to sbx run.
 network:
   allowedDomains:
     - "host.docker.internal:8000"

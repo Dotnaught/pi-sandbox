@@ -6,8 +6,10 @@ Pi runs inside an isolated container with filesystem isolation enforced by sbx. 
 
 ## Prerequisites
 
-- Docker Desktop (macOS or Windows)
-- [oMLX](https://github.com/mariozechner/omlx) installed and running on the host at port 8000
+**macOS (Apple Silicon) only.** oMLX is built on Apple's MLX framework and does not run on Linux or Windows.
+
+- Docker Desktop for Mac
+- [oMLX](https://github.com/jundot/omlx) installed and running on the host at port 8000
 - [`sbx`](https://github.com/docker/sandbox) CLI installed
 - The model loaded in oMLX: `Qwen3.6-35B-A3B-MLX-8bit` (or update `spec.yaml` to match your loaded model)
 
@@ -72,14 +74,6 @@ sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/
 ```
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
-
-### Linux hosts
-
-`host.docker.internal` is a macOS/Windows Docker Desktop convention. On Linux the name doesn't resolve inside the container. Pass the host gateway mapping when creating the sandbox:
-
-```sh
-sbx run --kit /path/to/pi-sandbox --name pi-sandbox --add-host=host.docker.internal:host-gateway pi /path/to/project
-```
 
 ## Changing the model
 
