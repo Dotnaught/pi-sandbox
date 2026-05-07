@@ -51,7 +51,22 @@ sbx template load pi-sandbox.tar
 ## Run
 
 ```sh
-sbx run --kit . --name pi-sandbox pi
+sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project
+```
+
+Pass the project directory as the last argument. sbx mounts it into the container so Pi can read and edit those files. The `--kit` path points to this repo (the sandbox config), which is separate from the project Pi works on.
+
+If you always run from the pi-sandbox directory, `--kit .` works as shorthand:
+
+```sh
+cd /path/to/pi-sandbox
+sbx run --kit . --name pi-sandbox pi /path/to/project
+```
+
+Mount additional directories by appending more paths. Add `:ro` to mount read-only:
+
+```sh
+sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project /path/to/docs:ro
 ```
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
@@ -61,7 +76,7 @@ Pi connects to oMLX on the host at `host.docker.internal:8000`.
 `host.docker.internal` is a macOS/Windows Docker Desktop convention. On Linux the name doesn't resolve inside the container. Pass the host gateway mapping when creating the sandbox:
 
 ```sh
-sbx run --kit . --name pi-sandbox --add-host=host.docker.internal:host-gateway pi
+sbx run --kit /path/to/pi-sandbox --name pi-sandbox --add-host=host.docker.internal:host-gateway pi /path/to/project
 ```
 
 ## Changing the model
@@ -84,6 +99,14 @@ Filesystem isolation is the primary protection. Pi runs inside a Docker containe
 Network isolation is weak by design. Open policy (`sbx policy set-default open`) is required for the sbx proxy to reach oMLX on the host. Under Open policy, all outbound traffic is allowed — the `allowedDomains` list in `spec.yaml` is not an enforced allow-list. Its role is to enable credential injection: the sbx proxy automatically adds `GITHUB_PERSONAL_ACCESS_TOKEN` to requests to `api.github.com` and `NPM_TOKEN` to `registry.npmjs.org`, so Pi never sees the real token values.
 
 If tighter network control is needed, you would need to switch to a Balanced or Locked Down sbx policy. That requires a different approach to oMLX connectivity — for example, running oMLX as an internet-accessible service with a real API key rather than relying on the localhost loopback.
+
+## Global instructions (CLAUDE.md)
+
+`CLAUDE.md` in this repo is copied into the image at `~/.pi/agent/CLAUDE.md`. Pi loads it at startup for every session, regardless of which project it's working in. Edit it to set coding standards, tool preferences, commit conventions, and anything else Pi should always follow.
+
+For project-specific instructions, add a `CLAUDE.md` or `AGENTS.md` to the project repo. Pi walks up the directory tree from the working directory and loads all matches, so project files layer on top of the global one automatically — no sandbox changes needed.
+
+After editing `CLAUDE.md`, rebuild the image (step 4 in [One-time setup](#4-build-and-load-the-image)).
 
 ## Adding skills
 
@@ -113,3 +136,4 @@ After adding or changing a skill, rebuild the image (steps 4 in [One-time setup]
 - `fd` (pre-installed so Pi doesn't download it at runtime)
 - `pi-start.sh` — entrypoint that writes Pi's provider config and launches the agent
 - `skills/` — bundled skills copied to `~/.pi/agent/skills/`
+- `CLAUDE.md` — global instructions copied to `~/.pi/agent/CLAUDE.md`
