@@ -3,3 +3,5 @@
 *.bak
 *.tar
 *.claude
+/skills/*
+!/skills/.gitkeep
