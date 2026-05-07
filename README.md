@@ -54,19 +54,21 @@ sbx template load pi-sandbox.tar
 sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project
 ```
 
-Pass the project directory as the last argument. sbx mounts it into the container so Pi can read and edit those files. The `--kit` path points to this repo (the sandbox config), which is separate from the project Pi works on.
+Two separate paths are involved:
 
-If you always run from the pi-sandbox directory, `--kit .` works as shorthand:
+- **`--kit`** — always points to this repo (the sandbox config containing `spec.yaml`). Never the project.
+- **Positional path** — the project directory Pi will work in. sbx mounts it into the container.
+
+For example, to run Pi against `~/code/repos/myapp`:
 
 ```sh
-cd /path/to/pi-sandbox
-sbx run --kit . --name pi-sandbox pi /path/to/project
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp
 ```
 
 Mount additional directories by appending more paths. Add `:ro` to mount read-only:
 
 ```sh
-sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project /path/to/docs:ro
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/docs:ro
 ```
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
