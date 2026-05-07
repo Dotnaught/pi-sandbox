@@ -70,6 +70,21 @@ sbx run --kit . --name pi-sandbox --add-host=host.docker.internal:host-gateway p
 2. Update `environment.variables.OMLX_MODEL` in `spec.yaml`.
 3. No image rebuild required — the model name is read from the environment at startup.
 
+## Access limitations
+
+| Dimension | Protection | Notes |
+|---|---|---|
+| Host filesystem | Strong | Container-only; no host volume mounts |
+| Local network | Minimal | Open policy; Pi can reach any port on the host via `host.docker.internal` |
+| Internet | Minimal | Open policy; Pi can reach any domain |
+| Credentials | Proxy-managed | Tokens injected by proxy, never exposed in container env |
+
+Filesystem isolation is the primary protection. Pi runs inside a Docker container with no host volume mounts and as a non-root `agent` user, so it cannot access host files.
+
+Network isolation is weak by design. Open policy (`sbx policy set-default open`) is required for the sbx proxy to reach oMLX on the host. Under Open policy, all outbound traffic is allowed — the `allowedDomains` list in `spec.yaml` is not an enforced allow-list. Its role is to enable credential injection: the sbx proxy automatically adds `GITHUB_PERSONAL_ACCESS_TOKEN` to requests to `api.github.com` and `NPM_TOKEN` to `registry.npmjs.org`, so Pi never sees the real token values.
+
+If tighter network control is needed, you would need to switch to a Balanced or Locked Down sbx policy. That requires a different approach to oMLX connectivity — for example, running oMLX as an internet-accessible service with a real API key rather than relying on the localhost loopback.
+
 ## What's in the image
 
 - Base: `docker/sandbox-templates:shell`
