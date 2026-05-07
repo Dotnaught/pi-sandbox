@@ -6,9 +6,8 @@ description: Terminal AI coding agent backed by a local oMLX model server
 
 agent:
   image: "pi-sandbox:latest"
-  # If you change the model, also update environment.variables.OMLX_MODEL below.
   entrypoint:
-    run: ["pi", "--model", "omlx/Qwen3.6-35B-A3B-MLX-8bit"]
+    run: ["/usr/local/bin/pi-start.sh"]
 
 # oMLX serves its OpenAI-compatible API on the host at port 8000 (default).
 # Inside the sandbox, the host is reachable via host.docker.internal.
@@ -35,17 +34,14 @@ network:
       headerName: Authorization
       valueFormat: "Bearer %s"
 
-# OMLX_API_KEY, GITHUB_PERSONAL_ACCESS_TOKEN, and NPM_TOKEN must be set in your host environment.
-# OMLX_API_KEY is written into ~/.pi/agent/models.json (mode 0600) so Pi can
-# authenticate with oMLX. The startup command receives the real value even though
-# OMLX_API_KEY is proxyManaged (the proxy placeholder only applies to the agent process).
-# Pi connects to localhost:8000, which socat forwards to host.docker.internal:8000.
-# NO_PROXY ensures Pi bypasses sbx's HTTP proxy for localhost connections.
+# GITHUB_PERSONAL_ACCESS_TOKEN and NPM_TOKEN must be set in your host environment.
+# oMLX API key: enable "skip API key verification" in the oMLX admin panel
+# (global settings). The sbx proxy routes container traffic through its own
+# localhost, so oMLX sees the connection as 127.0.0.1 and honours the setting.
+# Open network policy is required so the proxy can reach the host:
+#   sbx policy set-default open
 credentials:
   sources:
-    omlx:
-      env:
-        - OMLX_API_KEY
     github:
       env:
         - GITHUB_PERSONAL_ACCESS_TOKEN
@@ -57,54 +53,3 @@ environment:
   variables:
     OMLX_MODEL: "Qwen3.6-35B-A3B-MLX-8bit"
     OMLX_PORT: "8000"
-    # Prevent Pi from routing localhost through sbx's HTTP proxy.
-    NO_PROXY: "localhost,127.0.0.1"
-    no_proxy: "localhost,127.0.0.1"
-  proxyManaged:
-    - OMLX_API_KEY
-
-commands:
-  startup:
-    - command:
-        - python3
-        - "-c"
-        - |
-          import json, os, pathlib, stat
-          api_key = os.environ.get('OMLX_API_KEY', '')
-          if not api_key:
-              raise SystemExit('OMLX_API_KEY is not set — export it in your host environment before running sbx')
-          model = os.environ.get('OMLX_MODEL', 'Qwen3.6-35B-A3B-MLX-8bit')
-          try:
-              port = int(os.environ.get('OMLX_PORT', '8000'))
-          except ValueError:
-              raise SystemExit(f'OMLX_PORT must be a number, got: {os.environ["OMLX_PORT"]}')
-          config_dir = pathlib.Path.home() / '.pi' / 'agent'
-          config_dir.mkdir(parents=True, exist_ok=True)
-          models_config = {
-              'providers': {
-                  'omlx': {
-                      'baseUrl': f'http://localhost:{port}/v1',
-                      'api': 'openai-completions',
-                      'apiKey': api_key,
-                      'models': [{
-                          'id': model,
-                          'name': model,
-                          'reasoning': False,
-                          'input': ['text'],
-                          'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0},
-                      }],
-                  }
-              }
-          }
-          models_path = config_dir / 'models.json'
-          models_path.write_text(json.dumps(models_config, indent=2))
-          models_path.chmod(0o600)
-          settings = {'defaultProvider': 'omlx', 'defaultModel': model}
-          (config_dir / 'settings.json').write_text(json.dumps(settings, indent=2))
-      user: 1000
-      background: false
-      description: Write Pi config files pointing to socat tunnel on localhost
-    - command: ["socat", "TCP-LISTEN:8000,reuseaddr,fork", "TCP:host.docker.internal:8000"]
-      user: 1000
-      background: true
-      description: Forward localhost:8000 to host oMLX server
