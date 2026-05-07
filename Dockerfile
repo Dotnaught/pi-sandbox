@@ -10,6 +10,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 COPY pi-start.sh /usr/local/bin/pi-start.sh
 RUN chmod +x /usr/local/bin/pi-start.sh
+COPY --chown=agent:agent skills/ /home/agent/.pi/agent/skills/
 
 USER agent
 # Pin to an exact version for reproducible builds: @mariozechner/pi-coding-agent@<version>

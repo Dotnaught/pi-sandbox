@@ -85,6 +85,25 @@ Network isolation is weak by design. Open policy (`sbx policy set-default open`)
 
 If tighter network control is needed, you would need to switch to a Balanced or Locked Down sbx policy. That requires a different approach to oMLX connectivity — for example, running oMLX as an internet-accessible service with a real API key rather than relying on the localhost loopback.
 
+## Adding skills
+
+Skills are Markdown files that give Pi specialized knowledge and workflows. They live in `skills/<name>/SKILL.md` in this repo and are copied into the image at `~/.pi/agent/skills/` during build.
+
+To add a skill, create `skills/<name>/SKILL.md` with this structure:
+
+```markdown
+---
+name: <name>
+description: <what the skill does and when to use it>
+---
+
+# Instructions for Pi...
+```
+
+Pi loads the name and description of all available skills at startup. It reads the full instructions when a task matches the description, or when you invoke the skill explicitly with `/skill:<name>`.
+
+After adding or changing a skill, rebuild the image (steps 4 in [One-time setup](#4-build-and-load-the-image)).
+
 ## What's in the image
 
 - Base: `docker/sandbox-templates:shell`
@@ -93,3 +112,4 @@ If tighter network control is needed, you would need to switch to a Balanced or 
 - `uv` + `ruff` (Python toolchain)
 - `fd` (pre-installed so Pi doesn't download it at runtime)
 - `pi-start.sh` — entrypoint that writes Pi's provider config and launches the agent
+- `skills/` — bundled skills copied to `~/.pi/agent/skills/`
