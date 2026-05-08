@@ -58,7 +58,7 @@ sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project
 
 Two separate paths are involved:
 
-- **`--kit`** — always points to this repo (the sandbox config containing `spec.yaml`). Never the project.
+- **`--kit`** — always points to this repo (the sandbox config containing `spec.yaml`). Required on every `sbx run` invocation, not just the first.
 - **Positional path** — the project directory Pi will work in. sbx mounts it into the container.
 
 For example, to run Pi against `~/code/repos/myapp`:
@@ -81,15 +81,15 @@ The sandbox container keeps running after you quit Pi, and Pi persists session h
 
 ```sh
 # Continue the most recent session
-sbx run pi-sandbox -- --continue
+sbx run --kit ~/Code/repos/pi-sandbox pi-sandbox -- --continue
 
 # Pick a session interactively
-sbx run pi-sandbox -- --resume
+sbx run --kit ~/Code/repos/pi-sandbox pi-sandbox -- --resume
 ```
 
-Pass only the sandbox name — no kit, agent, or workspace paths. Workspace mounts are fixed at creation time.
+`--kit` is required every time — sbx uses it to locate the "pi" agent definition in `spec.yaml`. Without it, sbx doesn't recognise "pi" as a valid agent and fails.
 
-Starting `sbx run pi-sandbox` without `--continue` or `--resume` starts a fresh session but does not delete previous ones.
+Starting without `--continue` or `--resume` starts a fresh session but does not delete previous ones.
 
 ### Switching to a different project
 
