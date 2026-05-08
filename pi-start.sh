@@ -33,4 +33,4 @@ cat > "$config_dir/settings.json" <<EOF
 {"defaultProvider": "omlx", "defaultModel": "${model}"}
 EOF
 
-exec pi --model "omlx/${model}"
+exec pi --model "omlx/${model}" "$@"

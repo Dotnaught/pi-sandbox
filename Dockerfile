@@ -14,8 +14,7 @@ COPY --chown=agent:agent skills/ /home/agent/.pi/agent/skills/
 COPY --chown=agent:agent CLAUDE.md /home/agent/.pi/agent/CLAUDE.md
 
 USER agent
-# Pin to an exact version for reproducible builds: @mariozechner/pi-coding-agent@<version>
-RUN npm install -g @mariozechner/pi-coding-agent
+RUN npm install -g @earendil-works/pi-coding-agent@0.74.0
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ~/.local/bin/uv tool install ruff

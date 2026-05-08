@@ -1,6 +1,6 @@
 # pi-sandbox
 
-A Docker sandbox that runs [Pi](https://github.com/mariozechner/pi-coding-agent) — a terminal AI coding agent — backed by a local [oMLX](https://github.com/mariozechner/omlx) model server running on your Mac.
+A Docker sandbox that runs [Pi](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) — a terminal AI coding agent — backed by a local [oMLX](https://github.com/mariozechner/omlx) model server running on your Mac.
 
 Pi runs inside an isolated container with filesystem isolation enforced by sbx. Network access is set to Open so the sandbox can reach oMLX on the host.
 
@@ -75,6 +75,33 @@ sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
 
+### Resuming a session
+
+The sandbox container keeps running after you quit Pi, and Pi persists session history per project directory inside the container. To resume where you left off:
+
+```sh
+# Continue the most recent session
+sbx run pi-sandbox -- --continue
+
+# Pick a session interactively
+sbx run pi-sandbox -- --resume
+```
+
+Pass only the sandbox name — no kit, agent, or workspace paths. Workspace mounts are fixed at creation time.
+
+Starting `sbx run pi-sandbox` without `--continue` or `--resume` starts a fresh session but does not delete previous ones.
+
+### Switching to a different project
+
+Workspace mounts are fixed at creation time. To work on a different project directory, delete the sandbox and recreate it:
+
+```sh
+sbx rm pi-sandbox
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/other-project
+```
+
+Deleting the sandbox also destroys all session history stored inside it.
+
 ## Changing the model
 
 1. Load a different model in oMLX.
@@ -127,7 +154,7 @@ After adding or changing a skill, rebuild the image (steps 4 in [One-time setup]
 
 - Base: `docker/sandbox-templates:shell`
 - Node.js 26
-- `@mariozechner/pi-coding-agent` (global npm install)
+- `@earendil-works/pi-coding-agent@0.74.0` (global npm install)
 - `uv` + `ruff` (Python toolchain)
 - `fd` (pre-installed so Pi doesn't download it at runtime)
 - `pi-start.sh` — entrypoint that writes Pi's provider config and launches the agent
