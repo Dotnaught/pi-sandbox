@@ -49,5 +49,4 @@ credentials:
 
 environment:
   variables:
-    OMLX_MODEL: "Qwen3.6-35B-A3B-MLX-8bit"
     OMLX_PORT: "8000"
