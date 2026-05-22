@@ -2,6 +2,7 @@
 *.env
 *.bak
 *.tar
+*.ta
 *.claude
 /skills/*
 !/skills/.gitkeep
