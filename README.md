@@ -73,6 +73,16 @@ Mount additional directories by appending more paths. Add `:ro` to mount read-on
 sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/docs:ro
 ```
 
+To persist skills across sandbox recreations, mount your global Pi config directory read-only alongside the project. Pi will pick up skills from `~/.pi/agent/skills/` automatically:
+
+```sh
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi \
+  ~/code/repos/myapp \
+  ~/.pi/agent:ro
+```
+
+Any skills you add to `~/.pi/agent/skills/` on your Mac are immediately visible inside the container — no rebuild or sandbox recreate required.
+
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
 
 ### Resuming a session
@@ -133,9 +143,9 @@ After editing `CLAUDE.md`, rebuild the image (step 4 in [One-time setup](#4-buil
 
 ## Adding skills
 
-Skills are Markdown files that give Pi specialized knowledge and workflows. They live in `skills/<name>/SKILL.md` in this repo and are copied into the image at `~/.pi/agent/skills/` during build.
+Skills are Markdown files that give Pi specialized knowledge and workflows. The recommended approach is to keep them on the host so they survive sandbox recreation and take effect immediately without a rebuild.
 
-To add a skill, create `skills/<name>/SKILL.md` with this structure:
+Create a skill at `~/.pi/agent/skills/<name>/SKILL.md`:
 
 ```markdown
 ---
@@ -146,9 +156,13 @@ description: <what the skill does and when to use it>
 # Instructions for Pi...
 ```
 
+Then mount `~/.pi/agent` read-only when starting the sandbox (see [Run](#run)). Pi discovers skills in `~/.pi/agent/skills/` automatically.
+
 Pi loads the name and description of all available skills at startup. It reads the full instructions when a task matches the description, or when you invoke the skill explicitly with `/skill:<name>`.
 
-After adding or changing a skill, rebuild the image (steps 4 in [One-time setup](#4-build-and-load-the-image)).
+### Bundled skills
+
+Skills in `skills/<name>/SKILL.md` in this repo are copied into the image at `~/.pi/agent/skills/` during build. These are available even without the host mount, but require a rebuild to update.
 
 ## What's in the image
 
