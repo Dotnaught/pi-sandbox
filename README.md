@@ -73,15 +73,27 @@ Mount additional directories by appending more paths. Add `:ro` to mount read-on
 sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/docs:ro
 ```
 
-To persist skills across sandbox recreations, mount your global Pi config directory read-only alongside the project. Pi will pick up skills from `~/.pi/agent/skills/` automatically:
+To persist skills and extensions across sandbox recreations, mount your global Pi config directory read-only alongside the project:
 
 ```sh
 sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi \
   ~/code/repos/myapp \
-  ~/.pi/agent:ro
+  /Users/<username>/.pi/agent:ro
 ```
 
-Any skills you add to `~/.pi/agent/skills/` on your Mac are immediately visible inside the container — no rebuild or sandbox recreate required.
+Use the absolute path — sbx mounts directories at their literal host path inside the container, not remapped to the container user's home. Replace `<username>` with your macOS username (`whoami` will print it).
+
+For Pi to discover extensions from the mount, add the absolute path explicitly to `~/.pi/agent/settings.json` on your Mac:
+
+```json
+{
+  "extensions": [
+    "/Users/<username>/.pi/agent/extensions"
+  ]
+}
+```
+
+Pi reads this settings file from the mount at startup and loads extensions from the specified path. Skills in `/Users/<username>/.pi/agent/skills/` are discovered automatically without any settings change.
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
 
@@ -145,7 +157,7 @@ After editing `CLAUDE.md`, rebuild the image (step 4 in [One-time setup](#4-buil
 
 Skills are Markdown files that give Pi specialized knowledge and workflows. The recommended approach is to keep them on the host so they survive sandbox recreation and take effect immediately without a rebuild.
 
-Create a skill at `~/.pi/agent/skills/<name>/SKILL.md`:
+Create a skill at `~/.pi/agent/skills/<name>/SKILL.md` on your Mac:
 
 ```markdown
 ---
@@ -156,7 +168,7 @@ description: <what the skill does and when to use it>
 # Instructions for Pi...
 ```
 
-Then mount `~/.pi/agent` read-only when starting the sandbox (see [Run](#run)). Pi discovers skills in `~/.pi/agent/skills/` automatically.
+Then mount `/Users/<username>/.pi/agent` read-only when starting the sandbox (see [Run](#run)). Pi discovers skills from that path automatically — no settings change required.
 
 Pi loads the name and description of all available skills at startup. It reads the full instructions when a task matches the description, or when you invoke the skill explicitly with `/skill:<name>`.
 
