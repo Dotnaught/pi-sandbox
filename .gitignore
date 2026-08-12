@@ -4,5 +4,6 @@
 *.tar
 *.ta
 *.claude
+.claude/settings.local.json
 /skills/*
 !/skills/.gitkeep
