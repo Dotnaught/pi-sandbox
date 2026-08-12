@@ -61,23 +61,23 @@ Two separate paths are involved:
 - **`--kit`** — always points to this repo (the sandbox config containing `spec.yaml`). Required on every `sbx run` invocation, not just the first.
 - **Positional path** — the project directory Pi will work in. sbx mounts it into the container.
 
-For example, to run Pi against `~/code/repos/myapp`:
+For example, to run Pi against `~/Code/repos/myapp`:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/myapp
 ```
 
 Mount additional directories by appending more paths. Add `:ro` to mount read-only:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/myapp ~/docs:ro
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/myapp ~/docs:ro
 ```
 
 To persist skills and extensions across sandbox recreations, mount your global Pi config directory read-only alongside the project:
 
 ```sh
 sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi \
-  ~/code/repos/myapp \
+  ~/Code/repos/myapp \
   /Users/<username>/.pi/agent:ro
 ```
 
@@ -96,6 +96,19 @@ For Pi to discover extensions from the mount, add the absolute path explicitly t
 Pi reads this settings file from the mount at startup and loads extensions from the specified path. Skills in `/Users/<username>/.pi/agent/skills/` are discovered automatically without any settings change.
 
 Pi connects to oMLX on the host at `host.docker.internal:8000`.
+
+### Path casing must match exactly
+
+macOS is case-insensitive, so `cd ~/code/repos/myapp` works even when the directory is really `~/Code/repos/myapp`. sbx exposes the host filesystem inside a Linux VM, which is case-sensitive, so a mismatched path fails to resolve there.
+
+The bind mount then fails with only a warning in the sandbox daemon log, the sandbox is still created, and the agent dies immediately:
+
+```
+OCI runtime exec failed: chdir to `/Users/<username>/code/repos/myapp`: No such file or directory
+ERROR: agent exited with code 127
+```
+
+Pass paths with the same casing `ls` reports. When passing `.`, check that `pwd` matches the on-disk name — the shell keeps whatever casing you typed on the way in. Recovering means deleting the sandbox and recreating it, since the workspace mount is fixed at creation time.
 
 ### Resuming a session
 
@@ -119,7 +132,7 @@ Workspace mounts are fixed at creation time. To work on a different project dire
 
 ```sh
 sbx rm pi-sandbox
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/code/repos/other-project
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/other-project
 ```
 
 Deleting the sandbox also destroys all session history stored inside it.
