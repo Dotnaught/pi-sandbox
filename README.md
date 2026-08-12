@@ -108,7 +108,17 @@ OCI runtime exec failed: chdir to `/Users/<username>/code/repos/myapp`: No such 
 ERROR: agent exited with code 127
 ```
 
-Pass paths with the same casing `ls` reports. When passing `.`, check that `pwd` matches the on-disk name — the shell keeps whatever casing you typed on the way in. Recovering means deleting the sandbox and recreating it, since the workspace mount is fixed at creation time.
+Passing `.` does not avoid this. It expands to `$PWD`, which keeps whatever casing you typed when you changed into the directory.
+
+In zsh, `${PWD:A}` resolves against the filesystem and returns the true on-disk names, so it corrects the casing for you:
+
+```sh
+sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi "${PWD:A}" /Users/<username>/.pi/agent:ro
+```
+
+Quote it with single quotes when putting this in an alias, so it re-evaluates on each invocation. Note that `realpath` and Python's `os.path.realpath` are not substitutes — on macOS both return the path as typed, casing errors intact.
+
+Recovering from a failed run means deleting the sandbox and recreating it, since the workspace mount is fixed at creation time.
 
 ### Resuming a session
 
