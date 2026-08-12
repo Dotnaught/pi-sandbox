@@ -50,6 +50,16 @@ docker image save pi-sandbox:latest -o pi-sandbox.tar
 sbx template load pi-sandbox.tar
 ```
 
+### Updating Pi
+
+The Pi version is pinned in the Dockerfile and installed at build time, so the sandbox never updates itself. To see whether a newer release exists:
+
+```sh
+./check-pi-version.sh
+```
+
+It compares the pin against the npm registry and exits 0 when current, 1 when an update is available, and 2 on error. Applying an update means bumping the pin, rebuilding, and running `sbx rm pi-sandbox` — which destroys that sandbox's session history.
+
 ## Run
 
 ```sh
