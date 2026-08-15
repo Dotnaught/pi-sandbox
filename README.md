@@ -74,7 +74,9 @@ It compares the pin against the npm registry and exits 0 when current, 1 when an
 ./test.sh
 ```
 
-Covers `pi-start.sh` model selection and error paths against fixture payloads with `curl` and `pi` stubbed out, then the extension's refresh behaviour. Needs neither Docker nor a running oMLX.
+Covers `pi-start.sh` model selection and error paths against fixture payloads with `curl` and `pi` stubbed out, then `spec.yaml`, then the extension's refresh behaviour. Needs neither Docker nor a running oMLX.
+
+The `spec.yaml` checks pack the kit and assert on `sbx kit inspect --json`, because `sbx kit validate` only checks the YAML shape — an empty credential identifier passes validation and then panics during credential resolution at `sbx run`. They are skipped when `sbx` is not on `PATH`.
 
 ## Run
 

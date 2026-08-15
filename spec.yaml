@@ -33,8 +33,8 @@ permissions:
 # Open network policy is required so the proxy can reach the host:
 #   sbx policy set-default open
 credentials:
-  - apiKey:
-      name: github
+  - service: github
+    apiKey:
       inject:
         - domain: api.github.com
           header: Authorization

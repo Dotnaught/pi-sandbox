@@ -1,6 +1,6 @@
 #!/bin/bash
 # Exercises pi-start.sh model selection and error paths against fixture
-# payloads with curl and pi stubbed out, then the extension's refresh
+# payloads with curl and pi stubbed out, then spec.yaml and the extension's
 # behaviour. Needs neither Docker nor a running oMLX.
 set -euo pipefail
 
@@ -148,6 +148,60 @@ fixture small-model.json '{"models":[
 run small-model.json 200 >/dev/null
 expect "never lets the output budget exceed the context window" \
   '"maxTokens": 4096' "$(cat "$work/home/.pi/agent/models.json")"
+
+# `sbx kit validate` only checks the YAML shape. An empty credential identifier
+# passes it and then panics during credential resolution at `sbx run`, so assert
+# on the parsed artifact instead of trusting the validator.
+if command -v sbx >/dev/null 2>&1; then
+  kit_json=$(
+    sbx kit pack "$script_dir" -o "$work/kit.tar" >/dev/null 2>&1 &&
+      sbx kit inspect "$work/kit.tar" --json 2>/dev/null
+  ) || kit_json=""
+
+  if [[ -z "$kit_json" ]]; then
+    fail=$((fail + 1))
+    echo "FAIL - could not pack or inspect the kit; spec.yaml is unverified"
+  else
+    # shellcheck disable=SC2016  # single quotes are required: the ${...} below
+    # are JS template literals resolved by node, not bash expansions.
+    spec=$(printf '%s' "$kit_json" | node -e '
+let raw = "";
+process.stdin.on("data", (c) => (raw += c));
+process.stdin.on("end", () => {
+  const kit = JSON.parse(raw);
+  const creds = kit.credentials ?? [];
+  const injects = creds.flatMap((c) => c.apiKey?.inject ?? []);
+  const allow = kit.caps?.network?.allow ?? [];
+  const out = {
+    "schema": kit.manifest?.schemaVersion ?? "missing",
+    "empty-service": creds.filter((c) => !c.service).length,
+    "inject-rules": injects.length,
+    "incomplete-inject": injects.filter((i) => !i.domain || !i.header).length,
+    "network-allow-empty": allow.length === 0 ? "yes" : "no",
+    "omlx-host-allowed": allow.some((d) => d.startsWith("host.docker.internal:")) ? "yes" : "no",
+    "omlx-port-set": kit.environment?.variables?.OMLX_PORT ? "yes" : "no",
+    "entrypoint": kit.manifest?.binary ?? "missing",
+  };
+  for (const [k, v] of Object.entries(out)) console.log(`${k}=${v}`);
+});
+')
+    expect "spec.yaml is kit-spec v2" "schema=2" "$spec"
+    expect "every credential has a service identifier" "empty-service=0" "$spec"
+    expect "credential injection is configured" "inject-rules=1" "$spec"
+    expect "every inject rule has a domain and header" "incomplete-inject=0" "$spec"
+    expect "the network allow list survives the schema" "network-allow-empty=no" "$spec"
+    expect "oMLX on the host stays reachable" "omlx-host-allowed=yes" "$spec"
+    expect "OMLX_PORT reaches the sandbox" "omlx-port-set=yes" "$spec"
+    expect "the entrypoint matches the path the Dockerfile installs" \
+      "entrypoint=/usr/local/bin/pi-start.sh" "$spec"
+  fi
+
+  expect "spec.yaml uses no deprecated fields" "current" "$(
+    sbx kit validate "$script_dir" 2>&1 | rg -q "deprecated field" || echo "current"
+  )"
+else
+  echo "skip - sbx not installed; spec.yaml checks skipped"
+fi
 
 echo
 echo "passed: $pass  failed: $fail"
