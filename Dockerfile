@@ -11,6 +11,7 @@ RUN apt-get update && \
 COPY pi-start.sh /usr/local/bin/pi-start.sh
 RUN chmod +x /usr/local/bin/pi-start.sh
 COPY --chown=agent:agent skills/ /home/agent/.pi/agent/skills/
+COPY --chown=agent:agent extensions/ /home/agent/.pi/agent/extensions/
 COPY --chown=agent:agent CLAUDE.md /home/agent/.pi/agent/CLAUDE.md
 
 USER agent

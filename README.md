@@ -1,6 +1,6 @@
 # pi-sandbox
 
-A Docker sandbox that runs [Pi](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) — a terminal AI coding agent — backed by a local [oMLX](https://github.com/mariozechner/omlx) model server running on your Mac.
+A Docker sandbox that runs [Pi](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) — a terminal AI coding agent — backed by a local [oMLX](https://github.com/jundot/omlx) model server running on your Mac.
 
 Pi runs inside an isolated container with filesystem isolation enforced by sbx. Network access is set to Open so the sandbox can reach oMLX on the host.
 
@@ -11,7 +11,7 @@ Pi runs inside an isolated container with filesystem isolation enforced by sbx. 
 - Docker Desktop for Mac
 - [oMLX](https://github.com/jundot/omlx) installed and running on the host at port 8000
 - [`sbx`](https://github.com/docker/sandbox) CLI installed
-- The model loaded in oMLX: `Qwen3.6-35B-A3B-MLX-8bit` (or update `spec.yaml` to match your loaded model)
+- At least one LLM or VLM model available in oMLX
 
 ## One-time setup
 
@@ -59,6 +59,14 @@ The Pi version is pinned in the Dockerfile and installed at build time, so the s
 ```
 
 It compares the pin against the npm registry and exits 0 when current, 1 when an update is available, and 2 on error. Applying an update means bumping the pin, rebuilding, and running `sbx rm pi-sandbox` — which destroys that sandbox's session history.
+
+### Tests
+
+```sh
+./test.sh
+```
+
+Covers `pi-start.sh` model selection and error paths against fixture payloads with `curl` and `pi` stubbed out, then the extension's refresh behaviour. Needs neither Docker nor a running oMLX.
 
 ## Run
 
@@ -159,9 +167,34 @@ Deleting the sandbox also destroys all session history stored inside it.
 
 ## Changing the model
 
-1. Load a different model in oMLX.
-2. Update `environment.variables.OMLX_MODEL` in `spec.yaml`.
-3. No image rebuild required — the model name is read from the environment at startup.
+Nothing to configure — Pi tracks oMLX in two stages.
+
+At container start, `pi-start.sh` reads `/v1/models/status` and seeds `models.json`
+with every LLM and VLM oMLX serves, defaulting to one that is already loaded. That
+seed exists so `pi --model` resolves before any refresh, and so the sandbox keeps
+working if oMLX goes away mid-session.
+
+The `omlx` extension (`extensions/omlx/`) then registers a provider with a
+`refreshModels` callback. Pi calls it at session start and every time the model
+picker opens, replacing the seed with a fresh read of `/v1/models/status`. So a
+model downloaded, or a context window changed, in the oMLX admin panel is picked up
+by opening `/model` — no restart, no rebuild.
+
+Context limits come along with it. oMLX rejects prompts above its
+`max_context_window` (32768 by default); without that value Pi assumes 128k and
+would not compact the session in time.
+
+Refresh is not continuous: an admin-panel change does not reach a conversation
+already in flight until the next refresh, and the current turn's budget is already
+fixed. Setting `PI_OFFLINE` disables network refresh entirely, leaving only the seed.
+
+If oMLX is unreachable when a refresh runs, Pi warns (`Could not refresh omlx;
+searching cached models`) and keeps the catalog it already has, so the session
+carries on with the seed.
+
+To pin one model, set `environment.variables.OMLX_MODEL` in `spec.yaml` to an exact
+model ID. Startup fails with the list of valid IDs if it does not match. Pinning sets
+the default model; it does not hide the others from `/model`.
 
 ## Access limitations
 

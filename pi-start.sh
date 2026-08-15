@@ -2,50 +2,108 @@
 set -euo pipefail
 
 port="${OMLX_PORT:-8000}"
-
-if [[ -n "${OMLX_MODEL:-}" ]]; then
-  model="$OMLX_MODEL"
-else
-  response=$(curl -sf "http://host.docker.internal:${port}/v1/models") ||
-    {
-      echo "error: oMLX is not running on host port ${port}" >&2
-      exit 1
-    }
-  model=$(printf '%s' "$response" |
-    node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).data[0].id))") ||
-    {
-      echo "error: could not parse model ID from oMLX response" >&2
-      exit 1
-    }
-fi
+base_url="http://host.docker.internal:${port}"
+status_url="${base_url}/v1/models/status"
 config_dir="$HOME/.pi/agent"
+catalog="${OMLX_CATALOG:-$config_dir/extensions/omlx/catalog.mjs}"
+
+response=$(mktemp)
+trap 'rm -f "$response"' EXIT
+
+# /v1/models lists every model on disk with no load status; /v1/models/status
+# adds the `loaded` flag, `model_type` and context limits Pi needs.
+code=$(curl -s -o "$response" -w '%{http_code}' --max-time 10 "$status_url") || code="000"
+
+case "$code" in
+200) ;;
+000)
+  echo "error: cannot reach oMLX at ${status_url}" >&2
+  echo "hint: start oMLX on the host, then restart the sandbox" >&2
+  exit 1
+  ;;
+401 | 403)
+  echo "error: oMLX rejected the request (HTTP ${code})" >&2
+  echo "hint: enable 'skip API key verification' in the oMLX admin panel" >&2
+  exit 1
+  ;;
+*)
+  echo "error: oMLX returned HTTP ${code} for ${status_url}" >&2
+  exit 1
+  ;;
+esac
 
 mkdir -p "$config_dir"
 
-cat >"$config_dir/models.json" <<EOF
-{
-  "providers": {
-    "omlx": {
-      "baseUrl": "http://host.docker.internal:${port}/v1",
-      "api": "openai-completions",
-      "apiKey": "local",
-      "models": [
-        {
-          "id": "${model}",
-          "name": "${model}",
-          "reasoning": false,
-          "input": ["text"],
-          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}
-        }
-      ]
-    }
-  }
-}
-EOF
-chmod 600 "$config_dir/models.json"
+# The extension refreshes this catalog live; models.json is only the seed that
+# lets `pi --model` resolve before the first refresh, and the fallback when
+# oMLX is unreachable mid-session.
+#
+# shellcheck disable=SC2016  # single quotes are required: the ${...} below are
+# JS template literals resolved by node, not bash parameter expansions.
+model=$(
+  OMLX_PIN="${OMLX_MODEL:-}" \
+    CONFIG_DIR="$config_dir" \
+    STATUS_FILE="$response" \
+    CATALOG_PATH="$catalog" \
+    BASE_URL="${base_url}/v1" \
+    node --input-type=module -e '
+import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-cat >"$config_dir/settings.json" <<EOF
-{"defaultProvider": "omlx", "defaultModel": "${model}"}
-EOF
+const { chatModels, toProviderModels, selectModel } = await import(
+  pathToFileURL(process.env.CATALOG_PATH).href
+);
+
+const raw = readFileSync(process.env.STATUS_FILE, "utf8");
+let payload;
+try {
+  payload = JSON.parse(raw);
+} catch (err) {
+  console.error(`error: oMLX returned a non-JSON response: ${err.message}`);
+  console.error(`body: ${raw.trim().slice(0, 100)}`);
+  process.exit(1);
+}
+
+let chat;
+let selected;
+try {
+  chat = chatModels(payload);
+  selected = selectModel(chat, process.env.OMLX_PIN);
+} catch (err) {
+  console.error(`error: ${err.message}`);
+  process.exit(1);
+}
+
+const modelsPath = join(process.env.CONFIG_DIR, "models.json");
+writeFileSync(
+  modelsPath,
+  JSON.stringify({
+    providers: {
+      omlx: {
+        baseUrl: process.env.BASE_URL,
+        api: "openai-completions",
+        apiKey: "local",
+        models: toProviderModels(chat),
+      },
+    },
+  }, null, 2) + "\n",
+);
+chmodSync(modelsPath, 0o600);
+
+writeFileSync(
+  join(process.env.CONFIG_DIR, "settings.json"),
+  JSON.stringify({ defaultProvider: "omlx", defaultModel: selected }, null, 2) + "\n",
+);
+
+process.stdout.write(selected);
+'
+)
+
+# The extension reads this to reach the same server the seed was built from.
+export OMLX_BASE_URL="${base_url}/v1"
+
+# exec replaces this shell, so the EXIT trap never runs.
+rm -f "$response"
 
 exec pi --model "omlx/${model}" "$@"
