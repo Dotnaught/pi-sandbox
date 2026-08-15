@@ -1,51 +1,44 @@
-schemaVersion: "1"
-kind: agent
+schemaVersion: "2"
+kind: sandbox
 name: pi
 displayName: Pi
 description: Terminal AI coding agent backed by a local oMLX model server
 
-agent:
+sandbox:
   image: "pi-sandbox:latest"
-  entrypoint:
-    run: ["/usr/local/bin/pi-start.sh"]
+  entrypoint: ["/usr/local/bin/pi-start.sh"]
 
 # oMLX serves its OpenAI-compatible API on the host at port 8000 (default).
 # Inside the sandbox, the host is reachable via host.docker.internal.
-network:
-  allowedDomains:
-    - "host.docker.internal:8000"
-    - "github.com:443"
-    - "*.github.com:443"
-    - "*.githubusercontent.com:443"
-    - "registry.npmjs.org:443"
-    - "*.npmjs.com:443"
-    - "pypi.org:443"
-    - "files.pythonhosted.org:443"
-  serviceDomains:
-    api.github.com: github
-    registry.npmjs.org: npm
-  serviceAuth:
-    github:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
-    npm:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
+permissions:
+  network:
+    allow:
+      - "host.docker.internal:8000"
+      - "github.com:443"
+      - "*.github.com:443"
+      - "*.githubusercontent.com:443"
+      - "registry.npmjs.org:443"
+      - "*.npmjs.com:443"
+      - "pypi.org:443"
+      - "files.pythonhosted.org:443"
 
-# GITHUB_PERSONAL_ACCESS_TOKEN and NPM_TOKEN must be set in your host environment.
-# oMLX API key: enable "skip API key verification" in the oMLX admin panel
-# (global settings). The sbx proxy routes container traffic through its own
+# The proxy injects this from sbx's stored secret keychain, so the token never
+# enters the sandbox. It is not read from the host environment — store it with
+# `sbx secret set github` (or `sbx secret import`) or the header is not injected
+# and GitHub API calls go out unauthenticated.
+#
+# oMLX needs no credential: enable "skip API key verification" in the oMLX admin
+# panel (global settings). The sbx proxy routes container traffic through its own
 # localhost, so oMLX sees the connection as 127.0.0.1 and honours the setting.
 # Open network policy is required so the proxy can reach the host:
 #   sbx policy set-default open
 credentials:
-  sources:
-    github:
-      env:
-        - GITHUB_PERSONAL_ACCESS_TOKEN
-    npm:
-      env:
-        - NPM_TOKEN
+  - apiKey:
+      name: github
+      inject:
+        - domain: api.github.com
+          header: Authorization
+          format: "Bearer %s"
 
 environment:
   variables:

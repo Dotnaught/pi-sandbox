@@ -31,14 +31,22 @@ The proxy must be able to reach oMLX on the host:
 sbx policy set-default open
 ```
 
-### 3. Environment variables
+### 3. GitHub token
 
-Export these before running:
+Store the token in sbx's secret keychain. The proxy injects it into requests to
+`api.github.com`, so it never enters the sandbox:
 
 ```sh
-export GITHUB_PERSONAL_ACCESS_TOKEN=<your-github-personal-access-token>
-export NPM_TOKEN=<your-npm-token>          # optional, only needed for private npm packages
+sbx secret set github          # prompts, or: sbx secret import
 ```
+
+Optional — without it, GitHub API calls from the sandbox are unauthenticated
+(60 requests/hour, public repos only). An exported environment variable is not a
+substitute: `spec.yaml` resolves this credential from the keychain only.
+
+Private npm packages are not wired up. `npm` is not one of sbx's built-in secret
+services, so it would need `sbx secret set-custom` plus a matching `credentials`
+entry in `spec.yaml`.
 
 ### 4. Build and load the image
 
@@ -207,7 +215,7 @@ the default model; it does not hide the others from `/model`.
 
 Filesystem isolation is the primary protection. Pi runs inside a Docker container with no host volume mounts and as a non-root `agent` user, so it cannot access host files.
 
-Network isolation is weak by design. Open policy (`sbx policy set-default open`) is required for the sbx proxy to reach oMLX on the host. Under Open policy, all outbound traffic is allowed — the `allowedDomains` list in `spec.yaml` is not an enforced allow-list. Its role is to enable credential injection: the sbx proxy automatically adds `GITHUB_PERSONAL_ACCESS_TOKEN` to requests to `api.github.com` and `NPM_TOKEN` to `registry.npmjs.org`, so Pi never sees the real token values.
+Network isolation is weak by design. Open policy (`sbx policy set-default open`) is required for the sbx proxy to reach oMLX on the host. Under Open policy, all outbound traffic is allowed — the `permissions.network.allow` list in `spec.yaml` is not an enforced allow-list. Its role is to enable credential injection: the sbx proxy adds the stored `github` secret to requests to `api.github.com`, so Pi never sees the real token value.
 
 If tighter network control is needed, you would need to switch to a Balanced or Locked Down sbx policy. That requires a different approach to oMLX connectivity — for example, running oMLX as an internet-accessible service with a real API key rather than relying on the localhost loopback.
 
