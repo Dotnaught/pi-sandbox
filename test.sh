@@ -45,7 +45,7 @@ fixture loaded.json '{"models":[
  {"id":"nomic-embed","model_type":"embedding","loaded":true},
  {"id":"gemma-4-27b","model_type":"llm","loaded":false},
  {"id":"Qwen3.6-35B","model_type":"llm","loaded":true,"max_context_window":32768,"max_tokens":8192},
- {"id":"qwen3-8b:thinking","model_type":"llm","loaded":false},
+ {"id":"qwen3-8b","model_type":"llm","loaded":false},
  {"id":"Qwen3-VL-8B","model_type":"vlm","loaded":false}]}'
 fixture none-loaded.json '{"models":[
  {"id":"nomic-embed","model_type":"embedding","loaded":false},
@@ -61,8 +61,7 @@ fail=0
 
 # Prints the entrypoint's combined output followed by "exit=N", so assertions
 # can cover the exit status as well as the message.
-run() { # fixture http_code [omlx_model]
-  find "$work/home" -mindepth 1 -delete 2>/dev/null || true
+launch() { # fixture http_code [omlx_model] -- keeps whatever $HOME already holds
   local output status
   output=$(
     env PATH="$work/bin:$PATH" HOME="$work/home" FIXTURE="$work/$1" \
@@ -71,6 +70,11 @@ run() { # fixture http_code [omlx_model]
       bash "$script_dir/pi-start.sh" 2>&1
   ) && status=0 || status=$?
   printf '%s\nexit=%s' "$output" "$status"
+}
+
+run() { # fixture http_code [omlx_model] -- starts from an empty $HOME
+  find "$work/home" -mindepth 1 -delete 2>/dev/null || true
+  launch "$@"
 }
 
 expect() { # label expected_substring actual
@@ -129,9 +133,18 @@ run loaded.json 200 >/dev/null
 config=$(cat "$work/home/.pi/agent/models.json")
 expect "passes through the oMLX context window" '"contextWindow": 32768' "$config"
 expect "passes through the oMLX max output tokens" '"maxTokens": 8192' "$config"
-expect "flags :thinking profiles as reasoning models" '"reasoning": true' "$config"
 expect "marks vlm models as image-capable" '"image"' "$config"
 expect "sets the local-server compat flags" '"maxTokensField": "max_tokens"' "$config"
+
+# reasoning: false collapses Pi's thinking levels to ["off"], and an explicit
+# supportsReasoningEffort: false suppresses the reasoning_effort parameter
+# outright. Either one silently stops the model from thinking.
+expect "flags every chat model as reasoning-capable" "none-disabled" "$(
+  [[ "$config" != *'"reasoning": false'* ]] && echo "none-disabled"
+)"
+expect "never disables reasoning_effort support" "not-disabled" "$(
+  [[ "$config" != *'"supportsReasoningEffort": false'* ]] && echo "not-disabled"
+)"
 
 # Extension-supplied models are spread verbatim, so every field Pi would
 # otherwise default must be present in the shared mapping.
@@ -148,6 +161,34 @@ fixture small-model.json '{"models":[
 run small-model.json 200 >/dev/null
 expect "never lets the output budget exceed the context window" \
   '"maxTokens": 4096' "$(cat "$work/home/.pi/agent/models.json")"
+
+# Pi writes /settings changes into the same file the entrypoint pins the
+# provider in, so a restart must merge rather than replace.
+run loaded.json 200 >/dev/null
+printf '%s' '{"theme":"dark","defaultThinkingLevel":"high"}' \
+  >"$work/home/.pi/agent/settings.json"
+launch loaded.json 200 >/dev/null
+settings=$(cat "$work/home/.pi/agent/settings.json")
+expect "keeps the thinking level chosen in /settings" \
+  '"defaultThinkingLevel": "high"' "$settings"
+expect "keeps unrelated settings across a restart" '"theme": "dark"' "$settings"
+expect "still pins the provider" '"defaultProvider": "omlx"' "$settings"
+expect "still pins the selected model" '"defaultModel": "Qwen3.6-35B"' "$settings"
+
+# The entrypoint is the only way into the sandbox, so an unusable settings file
+# has to be recoverable in-band: warn, reset, and still launch.
+for bad in 'not json' '"a string"' '[1,2]' 'null'; do
+  printf '%s' "$bad" >"$work/home/.pi/agent/settings.json"
+  result=$(launch loaded.json 200)
+  expect "warns about an unusable settings file: $bad" "warning: resetting" "$result"
+  expect "still launches Pi with an unusable settings file: $bad" "exit=0" "$result"
+  expect "discards the unusable contents: $bad" "clean" "$(
+    settings=$(cat "$work/home/.pi/agent/settings.json")
+    [[ "$settings" != *'"0"'* ]] && echo "clean"
+  )"
+  expect "still pins the provider after a reset: $bad" \
+    '"defaultProvider": "omlx"' "$(cat "$work/home/.pi/agent/settings.json")"
+done
 
 # `sbx kit validate` only checks the YAML shape. An empty credential identifier
 # passes it and then panics during credential resolution at `sbx run`, so assert

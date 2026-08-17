@@ -47,7 +47,7 @@ model=$(
     CATALOG_PATH="$catalog" \
     BASE_URL="${base_url}/v1" \
     node --input-type=module -e '
-import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -91,9 +91,35 @@ writeFileSync(
 );
 chmodSync(modelsPath, 0o600);
 
+// An unusable settings file is reset rather than fatal. This script is the
+// container entrypoint, so aborting would exit the sandbox with no shell left
+// to repair the file from. Pi does the same on load.
+function readSettings(path) {
+  if (!existsSync(path)) {
+    return {};
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (err) {
+    console.error(`warning: resetting ${path}; it is not valid JSON (${err.message})`);
+    return {};
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    console.error(`warning: resetting ${path}; expected a JSON object`);
+    return {};
+  }
+  return parsed;
+}
+
+// Pi keeps defaultThinkingLevel, theme, extensions, compaction and packages in
+// this same file, so the provider pin is merged in rather than replacing it.
+const settingsPath = join(process.env.CONFIG_DIR, "settings.json");
+const settings = readSettings(settingsPath);
+
 writeFileSync(
-  join(process.env.CONFIG_DIR, "settings.json"),
-  JSON.stringify({ defaultProvider: "omlx", defaultModel: selected }, null, 2) + "\n",
+  settingsPath,
+  JSON.stringify({ ...settings, defaultProvider: "omlx", defaultModel: selected }, null, 2) + "\n",
 );
 
 process.stdout.write(selected);

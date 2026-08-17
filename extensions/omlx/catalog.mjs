@@ -6,10 +6,12 @@ const CHAT_MODEL_TYPES = ["llm", "vlm", undefined, null];
 // Mirrors Pi's built-in llama.cpp provider, which targets the same class of
 // local OpenAI-compatible server. oMLX accepts max_tokens (ChatCompletionRequest
 // aliases it with max_completion_tokens) and stream_options.include_usage.
+// supportsReasoningEffort is deliberately absent: Pi's detection defaults it to
+// true for a generic local server, and setting it false suppresses every branch
+// that emits a thinking parameter, so the model never reasons at all.
 const LOCAL_SERVER_COMPAT = {
   supportsStore: false,
   supportsDeveloperRole: false,
-  supportsReasoningEffort: false,
   supportsUsageInStreaming: true,
   supportsStrictMode: false,
   maxTokensField: "max_tokens",
@@ -23,10 +25,6 @@ const DEFAULT_MAX_TOKENS = 16384;
 export const STATUS_PATH = "/models/status";
 
 const positive = (value) => (typeof value === "number" && value > 0 ? value : undefined);
-
-// oMLX publishes profile variants as their own IDs (e.g. qwen3-8b:thinking);
-// mirrors the detection in oMLX's own omlx/integrations/pi.py.
-const isReasoning = (id) => /\b(thinking|o1|o3|r1)\b/.test(id.toLowerCase());
 
 export function chatModels(payload) {
   const entries = payload?.models;
@@ -53,7 +51,13 @@ export function toProviderModels(chat) {
     return {
       id: model.id,
       name: model.id,
-      reasoning: isReasoning(model.id),
+      // /models/status reports no reasoning capability, and oMLX IDs carry no
+      // reliable marker, so every chat model is flagged. The failure modes are
+      // asymmetric: a missed flag collapses Pi's thinking levels to ["off"] and
+      // hides the control in /settings, whereas a spurious reasoning_effort is
+      // ignored — checked against gemma-4-12B-it-qat, which has no thinking
+      // mode and answers identically with and without it.
+      reasoning: true,
       input: model.model_type === "vlm" ? ["text", "image"] : ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow,

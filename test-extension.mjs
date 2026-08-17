@@ -79,6 +79,23 @@ test("returns the live catalog, filtered to chat models", async () => {
   }
 });
 
+// A refresh replaces the seeded catalog wholesale, so it has to carry the
+// thinking configuration too: reasoning: false collapses Pi's thinking levels
+// to ["off"], and supportsReasoningEffort: false drops the parameter entirely.
+test("keeps refreshed models thinking-capable", async () => {
+  const restore = stubFetch(ok(PAYLOAD));
+  try {
+    const [{ config }] = await register();
+    const models = await config.refreshModels(online);
+    for (const model of models) {
+      assert.equal(model.reasoning, true, `${model.id} must stay reasoning-capable`);
+      assert.equal(model.compat.supportsReasoningEffort, undefined);
+    }
+  } finally {
+    restore();
+  }
+});
+
 test("requests the status endpoint, not the plain model listing", async () => {
   let requested;
   const restore = stubFetch(async (url) => {
