@@ -248,9 +248,11 @@ Then mount `/Users/<username>/.pi/agent` read-only when starting the sandbox (se
 
 Pi loads the name and description of all available skills at startup. It reads the full instructions when a task matches the description, or when you invoke the skill explicitly with `/skill:<name>`.
 
-### Bundled skills
+### Baking skills into the image
 
-Skills in `skills/<name>/SKILL.md` in this repo are copied into the image at `~/.pi/agent/skills/` during build. These are available even without the host mount, but require a rebuild to update.
+`skills/` in this repo is a local drop-point, not repo content: `.gitignore` excludes everything under it, so a clone starts empty and this repo ships no skills of its own. Anything you place at `skills/<name>/SKILL.md` is copied into the image at `~/.pi/agent/skills/` during build, which makes it available without the host mount at the cost of a rebuild to update.
+
+`./test.sh` validates the frontmatter of whatever is there, because a malformed `SKILL.md` is only reported as a skill conflict at container start.
 
 ## What's in the image
 
@@ -260,5 +262,5 @@ Skills in `skills/<name>/SKILL.md` in this repo are copied into the image at `~/
 - `uv` + `ruff` (Python toolchain)
 - `fd` (pre-installed so Pi doesn't download it at runtime)
 - `pi-start.sh` — entrypoint that writes Pi's provider config and launches the agent
-- `skills/` — bundled skills copied to `~/.pi/agent/skills/`
+- `skills/` — whatever you have dropped there, copied to `~/.pi/agent/skills/` (empty in a fresh clone)
 - `CLAUDE.md` — global instructions copied to `~/.pi/agent/CLAUDE.md`

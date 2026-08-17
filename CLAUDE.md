@@ -68,4 +68,3 @@ Prefer these over the standard alternatives:
 - One logical change per commit
 - Stage specific files (`git add <file>`), not `git add .`
 - Never commit secrets, API keys, or credentials
-- Use the `commit` skill (`/skill:commit`) for guided commit workflows
