@@ -182,9 +182,15 @@ for bad in 'not json' '"a string"' '[1,2]' 'null'; do
   result=$(launch loaded.json 200)
   expect "warns about an unusable settings file: $bad" "warning: resetting" "$result"
   expect "still launches Pi with an unusable settings file: $bad" "exit=0" "$result"
-  expect "discards the unusable contents: $bad" "clean" "$(
-    settings=$(cat "$work/home/.pi/agent/settings.json")
-    [[ "$settings" != *'"0"'* ]] && echo "clean"
+  # Asserting on the whole key set rather than probing for spread index keys,
+  # which only the string and array inputs can produce.
+  expect "resets to nothing but the provider pin: $bad" "ok" "$(
+    node -e '
+      const fs = require("node:fs");
+      const settings = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const keys = Object.keys(settings).sort().join(",");
+      process.stdout.write(keys === "defaultModel,defaultProvider" ? "ok" : keys);
+    ' "$work/home/.pi/agent/settings.json"
   )"
   expect "still pins the provider after a reset: $bad" \
     '"defaultProvider": "omlx"' "$(cat "$work/home/.pi/agent/settings.json")"
@@ -215,19 +221,22 @@ else
     # even with the fence deleted. Assert the block between the fences is
     # nothing but key: value lines, which prose bullets fail.
     fence=$(printf '%s\n' "$front" | rg -n '^---$' | sed -n '2p' | cut -d: -f1 || true)
-    block_ok="ok"
-    if [[ -z "$fence" ]]; then
-      block_ok=""
-    else
+    block=""
+    block_ok=""
+    if [[ -n "$fence" ]]; then
+      block=$(printf '%s\n' "$front" | sed -n "2,$((fence - 1))p")
+      block_ok="ok"
       while IFS= read -r line; do
         if [[ -n "$line" ]] && ! [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_-]*: ]]; then
           block_ok=""
         fi
-      done < <(printf '%s\n' "$front" | sed -n "2,$((fence - 1))p")
+      done < <(printf '%s\n' "$block")
     fi
     expect "skill $name: frontmatter holds only key: value lines" "ok" "$block_ok"
 
-    value=$(printf '%s\n' "$front" | rg -N -m1 '^description:' || true)
+    # Scoped to the block, not the file: a body line starting with
+    # "description:" must not stand in for a missing frontmatter key.
+    value=$(printf '%s\n' "$block" | rg -N -m1 '^description:' || true)
     value=${value#description:}
     value=${value# }
     expect "skill $name: declares a description" "ok" "$(
