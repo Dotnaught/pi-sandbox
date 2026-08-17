@@ -258,7 +258,7 @@ Pi loads the name and description of all available skills at startup. It reads t
 
 - Base: `docker/sandbox-templates:shell`
 - Node.js 26
-- `@earendil-works/pi-coding-agent@0.74.0` (global npm install)
+- `@earendil-works/pi-coding-agent` (global npm install, pinned in the Dockerfile; `./check-pi-version.sh` compares that pin against the latest release)
 - `uv` + `ruff` (Python toolchain)
 - `fd` (pre-installed so Pi doesn't download it at runtime)
 - `pi-start.sh` — entrypoint that writes Pi's provider config and launches the agent
