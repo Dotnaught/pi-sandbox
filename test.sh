@@ -190,6 +190,50 @@ for bad in 'not json' '"a string"' '[1,2]' 'null'; do
     '"defaultProvider": "omlx"' "$(cat "$work/home/.pi/agent/settings.json")"
 done
 
+# The Dockerfile copies skills/ into the image verbatim, so malformed
+# frontmatter only surfaces as a skill conflict at container start. These are
+# the two defects that have actually broken a build: frontmatter that does not
+# open on line 1, and an unquoted description containing a colon-space, which
+# YAML reads as a nested mapping key rather than part of the value.
+for skill in "$script_dir"/skills/*/SKILL.md; do
+  name=$(basename "$(dirname "$skill")")
+  front=$(sed -n '1,40p' "$skill")
+
+  expect "skill $name: frontmatter opens on line 1" "ok" "$(
+    [[ "$(printf '%s\n' "$front" | head -1)" == "---" ]] && echo "ok"
+  )"
+  # Bodies use --- as a horizontal rule, so "a second --- exists" would pass
+  # even with the fence deleted. Assert the block between the fences is nothing
+  # but key: value lines, which prose bullets fail.
+  fence=$(printf '%s\n' "$front" | rg -n '^---$' | sed -n '2p' | cut -d: -f1 || true)
+  block_ok="ok"
+  if [[ -z "$fence" ]]; then
+    block_ok=""
+  else
+    while IFS= read -r line; do
+      if [[ -n "$line" ]] && ! [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_-]*: ]]; then
+        block_ok=""
+      fi
+    done < <(printf '%s\n' "$front" | sed -n "2,$((fence - 1))p")
+  fi
+  expect "skill $name: frontmatter holds only key: value lines" "ok" "$block_ok"
+
+  value=$(printf '%s\n' "$front" | rg -N -m1 '^description:' || true)
+  value=${value#description:}
+  value=${value# }
+  expect "skill $name: declares a description" "ok" "$(
+    [[ -n "$value" ]] && echo "ok"
+  )"
+  # A plain YAML scalar cannot contain a colon-space: the parser reads it as a
+  # nested mapping key and the description is lost. Quoting the value is the fix.
+  first=${value:0:1}
+  yaml_ok="ok"
+  if [[ "$first" != '"' && "$first" != "'" && "$value" == *": "* ]]; then
+    yaml_ok=""
+  fi
+  expect "skill $name: description survives YAML parsing" "ok" "$yaml_ok"
+done
+
 # `sbx kit validate` only checks the YAML shape. An empty credential identifier
 # passes it and then panics during credential resolution at `sbx run`, so assert
 # on the parsed artifact instead of trusting the validator.
