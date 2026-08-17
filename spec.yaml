@@ -5,7 +5,7 @@ displayName: Pi
 description: Terminal AI coding agent backed by a local oMLX model server
 
 sandbox:
-  image: "pi-sandbox:latest"
+  image: "pi-omlx-sandbox:latest"
   entrypoint: ["/usr/local/bin/pi-start.sh"]
 
 # oMLX serves its OpenAI-compatible API on the host at port 8000 (default).

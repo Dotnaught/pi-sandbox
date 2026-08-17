@@ -37,10 +37,10 @@ cat <<EOF
 An update is available. To apply it, bump the pin in Dockerfile to $latest,
 then from the repo root:
 
-  docker build -t pi-sandbox:latest .
-  docker image save pi-sandbox:latest -o pi-sandbox.tar
-  sbx template load pi-sandbox.tar
-  sbx rm pi-sandbox
+  docker build -t pi-omlx-sandbox:latest .
+  docker image save pi-omlx-sandbox:latest -o pi-omlx-sandbox.tar
+  sbx template load pi-omlx-sandbox.tar
+  sbx rm pi-omlx-sandbox
 
 Recreating the sandbox destroys its session history.
 EOF

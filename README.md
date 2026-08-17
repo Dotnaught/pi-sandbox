@@ -1,4 +1,4 @@
-# pi-sandbox
+# pi-omlx-sandbox
 
 A Docker sandbox that runs [Pi](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) — a terminal AI coding agent — backed by a local [oMLX](https://github.com/jundot/omlx) model server running on your Mac.
 
@@ -53,9 +53,9 @@ entry in `spec.yaml`.
 `sbx` uses its own container runtime and cannot access images built with the host `docker` CLI directly. Build the image and load it into sbx:
 
 ```sh
-docker build -t pi-sandbox:latest .
-docker image save pi-sandbox:latest -o pi-sandbox.tar
-sbx template load pi-sandbox.tar
+docker build -t pi-omlx-sandbox:latest .
+docker image save pi-omlx-sandbox:latest -o pi-omlx-sandbox.tar
+sbx template load pi-omlx-sandbox.tar
 ```
 
 ### Updating Pi
@@ -66,7 +66,7 @@ The Pi version is pinned in the Dockerfile and installed at build time, so the s
 ./check-pi-version.sh
 ```
 
-It compares the pin against the npm registry and exits 0 when current, 1 when an update is available, and 2 on error. Applying an update means bumping the pin, rebuilding, and running `sbx rm pi-sandbox` — which destroys that sandbox's session history.
+It compares the pin against the npm registry and exits 0 when current, 1 when an update is available, and 2 on error. Applying an update means bumping the pin, rebuilding, and running `sbx rm pi-omlx-sandbox` — which destroys that sandbox's session history.
 
 ### Tests
 
@@ -81,7 +81,7 @@ The `spec.yaml` checks pack the kit and assert on `sbx kit inspect --json`, beca
 ## Run
 
 ```sh
-sbx run --kit /path/to/pi-sandbox --name pi-sandbox pi /path/to/project
+sbx run --kit /path/to/pi-omlx-sandbox --name pi-omlx-sandbox pi /path/to/project
 ```
 
 Two separate paths are involved:
@@ -92,19 +92,19 @@ Two separate paths are involved:
 For example, to run Pi against `~/Code/repos/myapp`:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/myapp
+sbx run --kit ~/Code/repos/pi-omlx-sandbox --name pi-omlx-sandbox pi ~/Code/repos/myapp
 ```
 
 Mount additional directories by appending more paths. Add `:ro` to mount read-only:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/myapp ~/docs:ro
+sbx run --kit ~/Code/repos/pi-omlx-sandbox --name pi-omlx-sandbox pi ~/Code/repos/myapp ~/docs:ro
 ```
 
 To persist skills and extensions across sandbox recreations, mount your global Pi config directory read-only alongside the project:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi \
+sbx run --kit ~/Code/repos/pi-omlx-sandbox --name pi-omlx-sandbox pi \
   ~/Code/repos/myapp \
   /Users/<username>/.pi/agent:ro
 ```
@@ -141,7 +141,7 @@ Passing `.` does not avoid this. It expands to `$PWD`, which keeps whatever casi
 In zsh, `${PWD:A}` resolves against the filesystem and returns the true on-disk names, so it corrects the casing for you:
 
 ```sh
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi "${PWD:A}" /Users/<username>/.pi/agent:ro
+sbx run --kit ~/Code/repos/pi-omlx-sandbox --name pi-omlx-sandbox pi "${PWD:A}" /Users/<username>/.pi/agent:ro
 ```
 
 Quote it with single quotes when putting this in an alias, so it re-evaluates on each invocation. Note that `realpath` and Python's `os.path.realpath` are not substitutes — on macOS both return the path as typed, casing errors intact.
@@ -154,10 +154,10 @@ The sandbox container keeps running after you quit Pi, and Pi persists session h
 
 ```sh
 # Continue the most recent session
-sbx run --kit ~/Code/repos/pi-sandbox pi-sandbox -- --continue
+sbx run --kit ~/Code/repos/pi-omlx-sandbox pi-omlx-sandbox -- --continue
 
 # Pick a session interactively
-sbx run --kit ~/Code/repos/pi-sandbox pi-sandbox -- --resume
+sbx run --kit ~/Code/repos/pi-omlx-sandbox pi-omlx-sandbox -- --resume
 ```
 
 `--kit` is required every time — sbx uses it to locate the "pi" agent definition in `spec.yaml`. Without it, sbx doesn't recognise "pi" as a valid agent and fails.
@@ -169,8 +169,8 @@ Starting without `--continue` or `--resume` starts a fresh session but does not 
 Workspace mounts are fixed at creation time. To work on a different project directory, delete the sandbox and recreate it:
 
 ```sh
-sbx rm pi-sandbox
-sbx run --kit ~/Code/repos/pi-sandbox --name pi-sandbox pi ~/Code/repos/other-project
+sbx rm pi-omlx-sandbox
+sbx run --kit ~/Code/repos/pi-omlx-sandbox --name pi-omlx-sandbox pi ~/Code/repos/other-project
 ```
 
 Deleting the sandbox also destroys all session history stored inside it.
